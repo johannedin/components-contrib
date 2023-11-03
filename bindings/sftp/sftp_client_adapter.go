@@ -50,7 +50,7 @@ func (s *SftpClientAdapter) Connect() error {
 func (s *SftpClientAdapter) HostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
 	s.logger.Warn("No hostkey validation implemented")
 	s.logger.Info("Host: " + hostname)
-	s.logger.Info("PublicKey" + string(key.Marshal()))
+	// s.logger.Info("PublicKey" + string(key.Marshal()))
 	s.logger.Info("Connecting to: " + remote.Network())
 
 	return nil

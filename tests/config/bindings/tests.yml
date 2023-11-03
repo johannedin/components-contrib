@@ -89,3 +89,6 @@ components:
       output:
         key: $((uuid))
       outputData: '{"data": {"maxResults": 10}}'
+  - component: sftp
+  operations: ["create", "get", "list", "delete"]
+

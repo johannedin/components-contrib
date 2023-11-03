@@ -1,0 +1,19 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: sftp-binding
+  namespace: default
+spec:
+  type: bindings.sftp
+  version: v1
+  metadata:
+  - name: host
+    value: 172.17.0.6
+  - name: username
+    value: demo
+  - name: password
+    value: demo
+  - name: port
+    value: 22
+  - name: rootPath
+    value: download

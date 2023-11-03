@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"strconv"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/dapr/components-contrib/bindings"
-	"github.com/dapr/components-contrib/metadata"
 	"github.com/dapr/kit/logger"
+	kitmd "github.com/dapr/kit/metadata"
 	"github.com/google/uuid"
 )
 
@@ -27,15 +28,11 @@ type Metadata struct {
 	HostKey  string `mapstructure:"hostKey"`
 }
 
-/*func NewSftpBinding(metadata Metadata, client SftpClient, logger logger.Logger) *SftpBinding {
+func NewSftpBinding(logger logger.Logger) *SftpBinding {
 	return &SftpBinding{
-		metadata: metadata,
-		client:   client,
-		logger:   logger,
+		logger: logger,
 	}
 }
-
-*/
 
 // Init implements bindings.OutputBinding.
 func (sb *SftpBinding) Init(ctx context.Context, metadata bindings.Metadata) error {
@@ -64,9 +61,10 @@ func (sb *SftpBinding) Invoke(ctx context.Context, req *bindings.InvokeRequest) 
 		}
 		filename = u.String()
 	}
+
 	switch req.Operation {
 	case bindings.ListOperation:
-		return sb.List(req)
+		return sb.List(filename, req)
 	case bindings.GetOperation:
 		return sb.Get(req)
 	case bindings.CreateOperation:
@@ -87,10 +85,14 @@ func (sb *SftpBinding) Operations() []bindings.OperationKind {
 
 func (sb *SftpBinding) parseMetadata(meta bindings.Metadata) (Metadata, error) {
 	sftpMeta := Metadata{}
-	err := metadata.DecodeMetadata(meta.Properties, &sftpMeta)
+	err := kitmd.DecodeMetadata(meta.Properties, &sftpMeta)
 
 	if err != nil {
 		return sftpMeta, err
+	}
+
+	if sftpMeta.RootPath == "" {
+		return sftpMeta, fmt.Errorf("property rootPath must not be empty")
 	}
 
 	return sftpMeta, err
@@ -114,13 +116,17 @@ func (sb *SftpBinding) Get(req *bindings.InvokeRequest) (*bindings.InvokeRespons
 
 }
 
-func (sb *SftpBinding) List(req *bindings.InvokeRequest) (*bindings.InvokeResponse, error) {
+func (sb *SftpBinding) List(filename string, req *bindings.InvokeRequest) (*bindings.InvokeResponse, error) {
 	sb.logger.Info("Connecting")
 	sb.client.Connect()
 
-	// TODO add possibility to list directories beyond root path
+	path, err := securejoin.SecureJoin(sb.metadata.RootPath, filename)
 
-	files, err := sb.client.List(sb.metadata.RootPath)
+	if err != nil {
+		return nil, fmt.Errorf("error getting absolute path for file %s: %w", filename, err)
+	}
+
+	files, err := sb.client.List(path)
 	sb.client.Close()
 
 	if err != nil {

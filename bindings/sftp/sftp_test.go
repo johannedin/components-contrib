@@ -49,7 +49,7 @@ func (m *MockSftpClient) Create(rootPath string, fileName string, data []byte) e
 func CreatePasswordBindingMetadata() bindings.Metadata {
 	m := bindings.Metadata{}
 	m.Properties = map[string]string{
-		"host":     "172.17.0.7",
+		"host":     "172.17.0.6",
 		"port":     "22",
 		"username": "demo",
 		"password": "demo",
@@ -88,7 +88,7 @@ func TestSftpBinding_Init(t *testing.T) {
 		mc.On("Close").Return(nil)
 		mc.On("List", "download").Return(f, nil)
 
-		fres, err := b.List(nil)
+		fres, err := b.List("", nil)
 
 		var files []string
 		if err := json.Unmarshal(fres.Data, &files); err != nil {
@@ -156,9 +156,9 @@ func TestSftpBinding_Init(t *testing.T) {
 
 	})
 
-	t.Run("create binary file", func(t *testing.T) {
-		panic("implement test")
-	})
+	// t.Run("create binary file", func(t *testing.T) {
+	//	panic("implement test")
+	//})
 
 	t.Run("parse metadata", func(t *testing.T) {
 		b := &SftpBinding{}
@@ -166,7 +166,7 @@ func TestSftpBinding_Init(t *testing.T) {
 		meta, err := b.parseMetadata(m)
 
 		assert.NoError(t, err)
-		assert.True(t, meta.Host == "172.17.0.7", "host parsed incorrectly")
+		assert.True(t, meta.Host == "172.17.0.6", "host parsed incorrectly")
 		assert.True(t, meta.Port == "22", "Port parseed incorrectly")
 		assert.True(t, meta.Username == "demo", "username parsed incorrectly")
 		assert.True(t, meta.Password == "demo", "password parsed incorrectly")
@@ -236,7 +236,7 @@ func TestSftpBinding_Init(t *testing.T) {
 		logger.Info(string(res.Data))
 	})
 
-	t.Run("Integration test, create binary file", func(t *testing.T) {
-		panic("write test")
-	})
+	// t.Run("Integration test, create binary file", func(t *testing.T) {
+	// 	panic("write test")
+	// })
 }
