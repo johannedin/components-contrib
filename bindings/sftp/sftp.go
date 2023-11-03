@@ -9,6 +9,7 @@ import (
 	"github.com/dapr/components-contrib/bindings"
 	"github.com/dapr/components-contrib/metadata"
 	"github.com/dapr/kit/logger"
+	"github.com/google/uuid"
 )
 
 type SftpBinding struct {
@@ -23,6 +24,7 @@ type Metadata struct {
 	Username string `mapstructure:"username"`
 	Password string `mapstructure:"password"`
 	RootPath string `mapstructure:"rootPath"`
+	HostKey  string `mapstructure:"hostKey"`
 }
 
 /*func NewSftpBinding(metadata Metadata, client SftpClient, logger logger.Logger) *SftpBinding {
@@ -54,11 +56,21 @@ func (sb *SftpBinding) Init(ctx context.Context, metadata bindings.Metadata) err
 
 // Invoke implements bindings.OutputBinding.
 func (sb *SftpBinding) Invoke(ctx context.Context, req *bindings.InvokeRequest) (*bindings.InvokeResponse, error) {
+	filename := req.Metadata["fileName"]
+	if filename == "" && req.Operation == bindings.CreateOperation {
+		u, err := uuid.NewRandom()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate UUID: %w", err)
+		}
+		filename = u.String()
+	}
 	switch req.Operation {
 	case bindings.ListOperation:
 		return sb.List(req)
 	case bindings.GetOperation:
 		return sb.Get(req)
+	case bindings.CreateOperation:
+		return sb.Create(filename, req)
 	}
 
 	return nil, fmt.Errorf("Operation not implemented")
@@ -66,7 +78,11 @@ func (sb *SftpBinding) Invoke(ctx context.Context, req *bindings.InvokeRequest) 
 
 // Operations implements bindings.OutputBinding.
 func (sb *SftpBinding) Operations() []bindings.OperationKind {
-	return []bindings.OperationKind{bindings.ListOperation}
+	return []bindings.OperationKind{
+		bindings.ListOperation,
+		bindings.GetOperation,
+		bindings.CreateOperation,
+	}
 }
 
 func (sb *SftpBinding) parseMetadata(meta bindings.Metadata) (Metadata, error) {
@@ -102,6 +118,8 @@ func (sb *SftpBinding) List(req *bindings.InvokeRequest) (*bindings.InvokeRespon
 	sb.logger.Info("Connecting")
 	sb.client.Connect()
 
+	// TODO add possibility to list directories beyond root path
+
 	files, err := sb.client.List(sb.metadata.RootPath)
 	sb.client.Close()
 
@@ -121,6 +139,21 @@ func (sb *SftpBinding) List(req *bindings.InvokeRequest) (*bindings.InvokeRespon
 			"rootPath":  sb.metadata.RootPath,
 		},
 	}, nil
+}
+
+func (sb *SftpBinding) Create(filename string, req *bindings.InvokeRequest) (*bindings.InvokeResponse, error) {
+	sb.client.Connect()
+	err := sb.client.Create(sb.metadata.RootPath, filename, req.Data)
+
+	if err != nil {
+		return nil, fmt.Errorf("could not create file: %w", err)
+	}
+
+	sb.client.Close()
+
+	// TODO: add metadata to response
+	res := &bindings.InvokeResponse{}
+	return res, nil
 
 }
 
@@ -129,6 +162,5 @@ type SftpClient interface {
 	Close() error
 	List(path string) ([]string, error)
 	Get(path string, filename string) ([]byte, error)
+	Create(path string, filename string, data []byte) error
 }
-
-//var _ = bindings.OutputBinding(&SftpBinding{})

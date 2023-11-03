@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../component-metadata-schema.json
+schemaVersion: v1
+type: bindings
+name: sftp
+version: v1
+status: development-only
+title: "Sftp"
+urls:
+  - title: Reference
+    url: https://docs.dapr.io/reference/components-reference/supported-bindings/sftp/
+capabilities: []
+binding: 
+  output: true
+  input: false
+  operations:
+    - name: create
+      description: "Create file"
+    - name: get
+      description: "Get file"
+    - name: delete
+      description: "Delete file"
+    - name: list
+      description: "List files"
+authenticationProfiles:
+  - title: "Username and password"
+    description: "Authenticate using username and password"
+    metadata:
+      - name: username
+        type: string
+        required: true
+        description: |
+          The username used to login to sftp server
+        example:  "demo"
+        default: ""
+      - name: password
+        type: string
+        required: true
+        sensitive: true
+        description: |
+          The password used to login to sftp server. Use secretKeyRef for
+          secret reference
+        example:  "demo"
+        default: ""
+      - name: publicKey
+        type: string
+        required: false 
+        sensitive: true
+        description: | 
+          The publicKey can be used in the Username and password authentcition
+          profile. If so, both username and password, as well as user publicKey
+          will be used to authenticate to sftp server. Use secretKeyRef for
+          secret reference, as unintentionally disclosing public key leave
+          account sensitive to inintended use.
+        example: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC2v9Sz4Cqomr02IfiDhUks/... your_username@your_hostname"
+        default: ""
+  - title: "Public key"
+    description: "Authenticate using Public key"
+    metadata:
+      - name: publicKey
+        type: string
+        required: true 
+        sensitive: true
+        description: | 
+          The publicKey used to login to sftp server
+        example: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC2v9Sz4Cqomr02IfiDhUks/... your_username@your_hostname"
+        default: ""
+metadata:
+  - name: host
+    required: true
+    description: |
+      the hostname or ip of the sftp server
+    example: "172.17.0.7"
+    type: string
+  - name: port
+    required: true
+    description: |
+      the port used for sftp connection
+    example: "22"
+    default: "22"
+    type: string
+  - name: rootPath
+    required: true
+    description: |
+      the root path used for all operations
+    example: "download"
+    default: ""
+    type: string
+  - name: hostKey
+    required: false
+    sensitive: true
+    description: |
+      The hostKey of the sftp server, used to verify that the server 
+      being communicated with is the intended server
+    example: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC2v9Sz4Cqomr02IfiDhUks/... your_username@your_hostname"
+    default: ""
+    type: string
+  

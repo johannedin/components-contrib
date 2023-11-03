@@ -3,6 +3,7 @@ package sftp_binding
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/dapr/components-contrib/bindings"
@@ -33,6 +34,16 @@ func (m *MockSftpClient) List(rootPath string) ([]string, error) {
 func (m *MockSftpClient) Get(rootPath string, fileName string) ([]byte, error) {
 	args := m.Called(rootPath, fileName)
 	return args.Get(0).([]byte), args.Error(1)
+}
+
+func (m *MockSftpClient) Create(rootPath string, fileName string, data []byte) error {
+	m.Called(rootPath, fileName, data)
+
+	if rootPath == "download" && fileName == "testfile.txt" {
+		return nil
+	}
+
+	return fmt.Errorf("Could not create file")
 }
 
 func CreatePasswordBindingMetadata() bindings.Metadata {
@@ -92,6 +103,63 @@ func TestSftpBinding_Init(t *testing.T) {
 
 	})
 
+	t.Run("get file", func(t *testing.T) {
+		b, mc, err := CreateMockedBinding()
+		// f := []string{"RFC4251.pdf", "RFC4252.pdf", "RFC4253.pdf", "RFC4254.pdf"}
+		data := []byte("some data from mock")
+
+		assert.NoError(t, err, "could not create sftpbinding with mocked client")
+
+		mc.On("Connect").Return(nil)
+		mc.On("Close").Return(nil)
+		// mc.On("List", "download").Return(f, nil)
+		mc.On("Get", "download", "testfile.txt").Return(data, nil)
+		todo := context.TODO()
+		req := &bindings.InvokeRequest{}
+		req.Operation = bindings.GetOperation
+		req.Metadata = map[string]string{
+			"fileName": "testfile.txt",
+		}
+
+		res, err := b.Invoke(todo, req)
+
+		assert.NoError(t, err, "could not invoke get")
+
+		assert.True(t, string(res.Data) == "some data from mock", "did not return all mocked files")
+
+		logger.Info("Testing")
+
+	})
+
+	t.Run("create file", func(t *testing.T) {
+		b, mc, err := CreateMockedBinding()
+		data := []byte("some data to save")
+
+		mc.On("Connect").Return(nil)
+		mc.On("Close").Return(nil)
+		mc.On("Create", "download", "testfile.txt", data).Return()
+
+		todo := context.TODO()
+		req := &bindings.InvokeRequest{}
+		req.Operation = bindings.CreateOperation
+		req.Metadata = map[string]string{
+			"fileName": "testfile.txt",
+		}
+
+		req.Data = data
+
+		res, err := b.Invoke(todo, req)
+
+		assert.NoError(t, err, "Could not create file")
+
+		assert.True(t, res != nil)
+
+	})
+
+	t.Run("create binary file", func(t *testing.T) {
+		panic("implement test")
+	})
+
 	t.Run("parse metadata", func(t *testing.T) {
 		b := &SftpBinding{}
 		m := CreatePasswordBindingMetadata()
@@ -143,5 +211,32 @@ func TestSftpBinding_Init(t *testing.T) {
 		assert.NoError(t, err, "could not invoke get")
 
 		logger.Info(string(res.Data))
+	})
+
+	t.Run("Integration test, create textfile", func(t *testing.T) {
+		b := &SftpBinding{}
+		m := CreatePasswordBindingMetadata()
+		todo := context.TODO()
+		req := &bindings.InvokeRequest{}
+		req.Operation = bindings.CreateOperation
+		req.Metadata = map[string]string{
+			"fileName": "testfile2.txt",
+		}
+
+		req.Data = []byte("some new data")
+
+		err := b.Init(todo, m)
+
+		assert.NoError(t, err, "Could not initialize component")
+
+		res, err := b.Invoke(todo, req)
+
+		assert.NoError(t, err, "could not invoke get")
+
+		logger.Info(string(res.Data))
+	})
+
+	t.Run("Integration test, create binary file", func(t *testing.T) {
+		panic("write test")
 	})
 }

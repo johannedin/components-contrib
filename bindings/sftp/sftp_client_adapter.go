@@ -2,7 +2,10 @@ package sftp_binding
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
+	"path/filepath"
+	"strconv"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/dapr/kit/logger"
@@ -47,6 +50,7 @@ func (s *SftpClientAdapter) Connect() error {
 func (s *SftpClientAdapter) HostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
 	s.logger.Warn("No hostkey validation implemented")
 	s.logger.Info("Host: " + hostname)
+	s.logger.Info("PublicKey" + string(key.Marshal()))
 	s.logger.Info("Connecting to: " + remote.Network())
 
 	return nil
@@ -99,4 +103,57 @@ func (s *SftpClientAdapter) Get(rootPath string, fileName string) ([]byte, error
 
 	return buf.Bytes(), nil
 
+}
+
+func (s *SftpClientAdapter) Create(rootPath string, fileName string, data []byte) error {
+	d, err := strconv.Unquote(string(data))
+	if err == nil {
+		data = []byte(d)
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(string(data))
+	if err == nil {
+		data = decoded
+	}
+
+	absPath, relPath, err := getSecureAbsRelPath(rootPath, fileName)
+	if err != nil {
+		return fmt.Errorf("error getting absolute path for file %s: %w", fileName, err)
+	}
+
+	dir := filepath.Dir(absPath)
+	err = s.client.MkdirAll(dir)
+	if err != nil {
+		return fmt.Errorf("error creating directory %s: %w", dir, err)
+	}
+
+	file, err := s.client.Create(absPath)
+	if err != nil {
+		return fmt.Errorf("error creating file %s: %w", absPath, err)
+	}
+
+	defer file.Close()
+
+	numBytes, err := file.Write(data)
+	if err != nil {
+		return fmt.Errorf("error writing to file %s: %w", absPath, err)
+	}
+
+	s.logger.Debugf("wrote file: %s. numBytes: %d", absPath, numBytes)
+	s.logger.Debugf("relpath: %s", relPath)
+
+	return nil
+}
+
+func getSecureAbsRelPath(rootPath string, filename string) (absPath string, relPath string, err error) {
+	absPath, err = securejoin.SecureJoin(rootPath, filename)
+	if err != nil {
+		return
+	}
+	relPath, err = filepath.Rel(rootPath, absPath)
+	if err != nil {
+		return
+	}
+
+	return
 }
